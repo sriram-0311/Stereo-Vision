@@ -33,6 +33,14 @@ Exploring stereo vision, by finding correspondences between left and right image
 * Scale the disparity map to the range [0, 255] and save the output as a grayscale image.
 
 ## Results
-To be added...
+* The results are shown below. The first image is the left image, the second image is the right image and the third image is the disparity map. The disparity map is scaled to the range [0, 255] and saved as a grayscale image.
+### Input
+Input Image 1             |  Input Image 2
+:-------------------------:|:-------------------------:
+![](dataset/image-3.jpeg)  |  ![](dataset/image-4.jpeg)
 
+### SIFT Features
+SIFT Features 1             |  SIFT Features 2
+:-------------------------:|:-------------------------:
+![](output/leftImageWithPoints.jpg)  |  ![](output/rightImageWithPoints.jpg)
 

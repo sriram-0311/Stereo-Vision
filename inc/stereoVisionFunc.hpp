@@ -46,7 +46,7 @@ class StereoVision {
             Mat img1_with_points = img1.clone();
             // draw the feature points on the image
             for (int i = 0; i < points.size(); i++) {
-                circle(img1_with_points, points[i], 5, Scalar(0, 0, 255), 2);
+                circle(img1_with_points, points[i], 2, Scalar(0, 0, 255), 1);
             }
             // return the image with feature points marked on it
             cout<<"<<< drawFeaturePoints() returned"<<endl;
