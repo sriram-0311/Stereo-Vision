@@ -476,4 +476,9 @@ class cv_factory {
             }
             return img3;
         }
+
+        // function to take 1 image and path string as input and store the image in the path and return void
+        void saveImage(string path, Mat img) {
+            imwrite(path, img);
+        }
 };
