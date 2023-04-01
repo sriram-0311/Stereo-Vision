@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.0)
+project(stereoVision)
+find_package(OpenCV REQUIRED)
+include_directories(${OpenCV_INCLUDE_DIRS}, inc)
+add_executable(stereoVision src/main.cpp)
+target_link_libraries(stereoVision ${OpenCV_LIBS})
