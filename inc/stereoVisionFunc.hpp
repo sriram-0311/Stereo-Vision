@@ -131,36 +131,29 @@ class StereoVision {
         // function to compute the dense disparity map using best fundamental matrix
         Mat computeDisparityMap(Mat img1, Mat img2, Mat bestFundamentalMatrix) {
             cout<<">>> computeDisparityMap() called"<<endl;
-            // create a Mat object to store the disparity map
-            Mat disparityMap;
-            // transform points from image 1 to image 2 using the best fundamental matrix
-            Mat points4D;
-            triangulatePoints(Mat::eye(3, 3, CV_64F), bestFundamentalMatrix, img1, img2, points4D);
-            // convert the points from homogeneous coordinates to Euclidean coordinates
-            for (int i = 0; i < points4D.cols; i++) {
-                points4D.at<double>(0, i) /= points4D.at<double>(3, i);
-                points4D.at<double>(1, i) /= points4D.at<double>(3, i);
-                points4D.at<double>(2, i) /= points4D.at<double>(3, i);
-                points4D.at<double>(3, i) /= points4D.at<double>(3, i);
-            }
-            // create a Mat object to store the disparity map
-            disparityMap = Mat::zeros(img1.rows, img1.cols, CV_8UC1);
-            // for each point in image 1
-            for (int i = 0; i < points4D.cols; i++) {
-                // if the point is in front of the camera
-                if (points4D.at<double>(2, i) > 0) {
-                    // find the corresponding point in image 2
-                    Mat point1 = (Mat_<double>(3, 1) << img1.at<double>(0, i), img1.at<double>(1, i), 1);
-                    Mat point2 = bestFundamentalMatrix * point1;
-                    // calculate the distance of the corresponding points from the epipolar lines
-                    double distance = abs(img2.at<double>(0, i) * point2.at<double>(0, 0) + img2.at<double>(1, i) * point2.at<double>(1, 0) + point2.at<double>(2, 0)) / sqrt(pow(point2.at<double>(0, 0), 2) + pow(point2.at<double>(1, 0), 2));
-                    // if the distance is less than 0.1, then the corresponding points are inliers
-                    if (distance < 0.3) {
-                        // calculate the disparity
-                        double disparity = abs(img1.at<double>(0, i) - img2.at<double>(0, i));
-                        // update the disparity map
-                        disparityMap.at<uchar>(img1.at<double>(1, i), img1.at<double>(0, i)) = disparity;
+            // compute the common region of the two images
+            Rect commonRegion = computeCommonRegion(img1, img2, bestFundamentalMatrix);
+            // create a Mat object to store the disparity map size of the common region
+            Mat disparityMap(commonRegion.height, commonRegion.width, CV_8UC1);
+            // for each pixel in the common region calculate the disparity in the horizontal direction and store it in the disparity map
+            for (int i = 0; i < commonRegion.height; i++) {
+                for (int j = 0; j < commonRegion.width; j++) {
+                    int disparity = 0;
+                    // for each pixel in the horizontal direction
+                    for (int k = 0; k < img1.cols - commonRegion.x; k++) {
+                        // if the pixel in the first image is not black and the pixel in the second image is not black
+                        if (img1.at<Vec3b>(i + commonRegion.y, j + commonRegion.x)[0] != 0 && img1.at<Vec3b>(i + commonRegion.y, j + commonRegion.x)[1] != 0 && img1.at<Vec3b>(i + commonRegion.y, j + commonRegion.x)[2] != 0 && img2.at<Vec3b>(i + commonRegion.y, j + commonRegion.x + k)[0] != 0 && img2.at<Vec3b>(i + commonRegion.y, j + commonRegion.x + k)[1] != 0 && img2.at<Vec3b>(i + commonRegion.y, j + commonRegion.x + k)[2] != 0) {
+                            // calculate the difference between the pixel in the first image and the pixel in the second image
+                            int difference = abs(img1.at<Vec3b>(i + commonRegion.y, j + commonRegion.x)[0] - img2.at<Vec3b>(i + commonRegion.y, j + commonRegion.x + k)[0]) + abs(img1.at<Vec3b>(i + commonRegion.y, j + commonRegion.x)[1] - img2.at<Vec3b>(i + commonRegion.y, j + commonRegion.x + k)[1]) + abs(img1.at<Vec3b>(i + commonRegion.y, j + commonRegion.x)[2] - img2.at<Vec3b>(i + commonRegion.y, j + commonRegion.x + k)[2]);
+                            // if the difference is less than 10, then the pixel in the first image and the pixel in the second image are similar
+                            if (difference < 10) {
+                                disparity = k;
+                                break;
+                            }
+                        }
                     }
+                    // store the disparity in the disparity map
+                    disparityMap.at<uchar>(i, j) = disparity;
                 }
             }
             // return the disparity map
