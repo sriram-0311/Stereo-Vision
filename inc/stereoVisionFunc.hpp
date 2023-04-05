@@ -128,34 +128,16 @@ class StereoVision {
             return bestCorrespondences;
         }
 
-        // function to compute the dense disparity map using best fundamental matrix
+        // function to compute the dense disparity map using best fundamental matrix to reduce the search space
         Mat computeDisparityMap(Mat img1, Mat img2, Mat bestFundamentalMatrix) {
             cout<<">>> computeDisparityMap() called"<<endl;
-            // compute the common region of the two images
-            Rect commonRegion = computeCommonRegion(img1, img2, bestFundamentalMatrix);
-            // create a Mat object to store the disparity map size of the common region
-            Mat disparityMap(commonRegion.height, commonRegion.width, CV_8UC1);
-            // for each pixel in the common region calculate the disparity in the horizontal direction and store it in the disparity map
-            for (int i = 0; i < commonRegion.height; i++) {
-                for (int j = 0; j < commonRegion.width; j++) {
-                    int disparity = 0;
-                    // for each pixel in the horizontal direction
-                    for (int k = 0; k < img1.cols - commonRegion.x; k++) {
-                        // if the pixel in the first image is not black and the pixel in the second image is not black
-                        if (img1.at<Vec3b>(i + commonRegion.y, j + commonRegion.x)[0] != 0 && img1.at<Vec3b>(i + commonRegion.y, j + commonRegion.x)[1] != 0 && img1.at<Vec3b>(i + commonRegion.y, j + commonRegion.x)[2] != 0 && img2.at<Vec3b>(i + commonRegion.y, j + commonRegion.x + k)[0] != 0 && img2.at<Vec3b>(i + commonRegion.y, j + commonRegion.x + k)[1] != 0 && img2.at<Vec3b>(i + commonRegion.y, j + commonRegion.x + k)[2] != 0) {
-                            // calculate the difference between the pixel in the first image and the pixel in the second image
-                            int difference = abs(img1.at<Vec3b>(i + commonRegion.y, j + commonRegion.x)[0] - img2.at<Vec3b>(i + commonRegion.y, j + commonRegion.x + k)[0]) + abs(img1.at<Vec3b>(i + commonRegion.y, j + commonRegion.x)[1] - img2.at<Vec3b>(i + commonRegion.y, j + commonRegion.x + k)[1]) + abs(img1.at<Vec3b>(i + commonRegion.y, j + commonRegion.x)[2] - img2.at<Vec3b>(i + commonRegion.y, j + commonRegion.x + k)[2]);
-                            // if the difference is less than 10, then the pixel in the first image and the pixel in the second image are similar
-                            if (difference < 10) {
-                                disparity = k;
-                                break;
-                            }
-                        }
-                    }
-                    // store the disparity in the disparity map
-                    disparityMap.at<uchar>(i, j) = disparity;
-                }
-            }
+            // create a Mat object to store the disparity map
+            Mat disparityMap;
+            // create a Mat object to store the epipolar lines
+            Mat epipolarLines;
+            // create a Mat object to store the epipolar lines for the second image
+            Mat epipolarLines2;
+            
             // return the disparity map
             cout<<"<<< computeDisparityMap() returned"<<endl;
             return disparityMap;
