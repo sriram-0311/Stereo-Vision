@@ -23,12 +23,24 @@ int main(int argc, char** argv) {
     // read the image
     vector<Mat> stereoImages = cvFactory.read_images(imageNames);
     // find feature points in the image
-    vector<Point2f> leftPoints = stereoVision.findFeaturePoints(stereoImages[0]);
-    vector<Point2f> rightPoints = stereoVision.findFeaturePoints(stereoImages[1]);
+    vector<Point> leftPoints = stereoVision.findFeaturePoints(stereoImages[0]);
+    vector<Point> rightPoints = stereoVision.findFeaturePoints(stereoImages[1]);
+    // find the correspondances between the feature points in the left and right images
+    vector<pair<Point, Point>> correspondances = cvFactory.find_correspondences(stereoImages[0], stereoImages[1], leftPoints, rightPoints);
+    // best fundamental matrix
+    Mat bestFundamentalMatrix;
+    // estimate the best correspondences
+    vector<pair<Point, Point>> bestCorrespondances = stereoVision.bestCorrespondences(correspondances, bestFundamentalMatrix);
+    // draw the correspondances between the feature points in the left and right images
+    Mat correspondancesImage = cvFactory.draw_lines(stereoImages[0], stereoImages[1], bestCorrespondances);
     // draw feature points on the image
     Mat leftImageWithPoints = stereoVision.drawFeaturePoints(stereoImages[0], leftPoints);
     Mat rightImageWithPoints = stereoVision.drawFeaturePoints(stereoImages[1], rightPoints);
+    // compute the dense disparity map
+    Mat disparityMap = stereoVision.computeDisparityMap(stereoImages[0], stereoImages[1], bestFundamentalMatrix);
     // save the image with feature points marked on it to the ../output directory
     cvFactory.saveImage("../output/leftImageWithPoints.jpg", leftImageWithPoints);
     cvFactory.saveImage("../output/rightImageWithPoints.jpg", rightImageWithPoints);
+    cvFactory.saveImage("../output/correspondancesImage.jpg", correspondancesImage);
+    cvFactory.saveImage("../output/disparityMap.jpg", disparityMap);
 }
