@@ -65,8 +65,34 @@ class StereoVision {
                 points1_2f.push_back(Point2f(points1[i].x, points1[i].y));
                 points2_2f.push_back(Point2f(points2[i].x, points2[i].y));
             }
-            // find the fundamental matrix using the eight corresponding points
-            fundamentalMatrix = findFundamentalMat(points1_2f, points2_2f, FM_8POINT);
+            // construct the fundamental matrix empty
+            fundamentalMatrix = Mat::zeros(3, 3, CV_64F);
+            // create the A matrix to multiply with vectorized fundamental matrix
+            Mat A = Mat::zeros(8, 9, CV_64F);
+            // fill the A matrix
+            for (int i = 0; i < 8; i++) {
+                A.at<double>(i, 0) = points1_2f[i].x * points2_2f[i].x;
+                A.at<double>(i, 1) = points1_2f[i].x * points2_2f[i].y;
+                A.at<double>(i, 2) = points1_2f[i].x;
+                A.at<double>(i, 3) = points1_2f[i].y * points2_2f[i].x;
+                A.at<double>(i, 4) = points1_2f[i].y * points2_2f[i].y;
+                A.at<double>(i, 5) = points1_2f[i].y;
+                A.at<double>(i, 6) = points2_2f[i].x;
+                A.at<double>(i, 7) = points2_2f[i].y;
+                A.at<double>(i, 8) = 1;
+            }
+            // find the SVD of A
+            SVD svd(A.t() * A);
+            // get the last column of V
+            Mat V = svd.vt;
+            // reshape the last column of V into a 3x3 matrix
+            Mat fundamentalMatrix_reshaped = V.row(8).reshape(0, 3);
+            // print shape of fundamental matrix reshaped
+            cout<<"Shape of fundamental matrix reshaped: "<<fundamentalMatrix_reshaped.size()<<endl;
+            // normalize the fundamental matrix
+            fundamentalMatrix = fundamentalMatrix_reshaped / fundamentalMatrix_reshaped.at<double>(2, 2);
+            // print the fundamental matrix
+            cout<<"Fundamental Matrix:"<<endl;
             // return the fundamental matrix
             cout<<"<<< estimateFundamentalMatrix() returned"<<endl;
             return fundamentalMatrix;
@@ -111,7 +137,7 @@ class StereoVision {
                     double distance1 = abs(point2.dot(epipolarLine1)) / sqrt(pow(epipolarLine1.at<double>(0, 0), 2) + pow(epipolarLine1.at<double>(1, 0), 2));
                     double distance2 = abs(point1.dot(epipolarLine2)) / sqrt(pow(epipolarLine2.at<double>(0, 0), 2) + pow(epipolarLine2.at<double>(1, 0), 2));
                     // if the distance is less than 0.1, then the corresponding points are inliers
-                    if (distance1 < 0.3 && distance2 < 0.3) {
+                    if (distance1 < 0.75 && distance2 < 0.75) {
                         inliers++;
                         tempBestCorrespondences.push_back(correspondingPoints[j]);
                     }
@@ -144,6 +170,8 @@ class StereoVision {
             int minDisparityHorizontal = 5;
             int minDisparityVertical = 5;
             int windowSize = 5;
+            // print the fundamental matrix
+            cout<<"Fundamental Matrix: "<<endl<<bestFundamentalMatrix<<endl;
             // pad the images with zeros
             Mat img1_padded = Mat::zeros(img1.rows + 2 * windowSize, img1.cols + 2 * windowSize, CV_8UC1);
             Mat img2_padded = Mat::zeros(img2.rows + 2 * windowSize, img2.cols + 2 * windowSize, CV_8UC1);
@@ -153,8 +181,8 @@ class StereoVision {
             Mat disparityMap = Mat::zeros(img1.rows, img1.cols, CV_8UC1);
             // create a Mat object to store the epipolar line of the second image
             vector<Point2d> epipolarLine2;
-            for (int i = 0; i < 1; i++) {
-                for (int j = 0; j < 1; j++) {
+            for (int i = 200; i < 201; i++) {
+                for (int j = 200; j < 201; j++) {
                     Mat point1 = (Mat_<double>(3, 1) << i, j, 1);
                     // extract a 5x5 window around the pixel
                     Mat window1 = img1_padded(Rect(j, i, 5, 5));
