@@ -87,8 +87,6 @@ class StereoVision {
             Mat V = svd.vt;
             // reshape the last column of V into a 3x3 matrix
             Mat fundamentalMatrix_reshaped = V.row(8).reshape(0, 3);
-            // print shape of fundamental matrix reshaped
-            cout<<"Shape of fundamental matrix reshaped: "<<fundamentalMatrix_reshaped.size()<<endl;
             // normalize the fundamental matrix
             fundamentalMatrix = fundamentalMatrix_reshaped / fundamentalMatrix_reshaped.at<double>(2, 2);
             // print the fundamental matrix
@@ -170,70 +168,62 @@ class StereoVision {
             int minDisparityHorizontal = 5;
             int minDisparityVertical = 5;
             int windowSize = 5;
-            // print the fundamental matrix
-            cout<<"Fundamental Matrix: "<<endl<<bestFundamentalMatrix<<endl;
             // pad the images with zeros
             Mat img1_padded = Mat::zeros(img1.rows + 2 * windowSize, img1.cols + 2 * windowSize, CV_8UC1);
             Mat img2_padded = Mat::zeros(img2.rows + 2 * windowSize, img2.cols + 2 * windowSize, CV_8UC1);
             // create a Mat object to store the epipolar line of the second image
             Mat epipolarLine;
+            Mat matchPoint;
             // create a Mat object to store the distances of the difference in pixels between image 1 and 2 in grayscale
-            Mat disparityMap = Mat::zeros(img1.rows, img1.cols, CV_8UC1);
+            // Mat disparityMap = Mat::zeros(img1.rows, img1.cols, CV_8UC1);
             // create a Mat object to store the epipolar line of the second image
             vector<Point2d> epipolarLine2;
-            for (int i = 200; i < 201; i++) {
-                for (int j = 200; j < 201; j++) {
+            // go through all the pixels in the first image
+            for (int i = windowSize/2; i < img1.rows/2; i++) {
+                for (int j = windowSize/2; j < img1.cols/2; j++) {
                     Mat point1 = (Mat_<double>(3, 1) << i, j, 1);
                     // extract a 5x5 window around the pixel
-                    Mat window1 = img1_padded(Rect(j, i, 5, 5));
+                    Mat window1 = img1_padded(Rect(j, i, windowSize, windowSize));
                     epipolarLine = point1.t()*bestFundamentalMatrix;
-                    for (int k = 0; k < img2.rows; k++) {
-                        for (int l = 0; l < img2.cols; l++) {
+                    for (int k = windowSize/2; k < img2.rows/2; k++) {
+                        for (int l = windowSize/2; l < img2.cols/2; l++) {
                             Mat point2 = (Mat_<double>(1, 3) << l, k, 1);
                             // calculate the distance of the corresponding points from the epipolar lines
                             // double distance = abs(epipolarLine.dot(point2)) / sqrt(pow(epipolarLine.at<double>(0, 0), 2) + pow(epipolarLine.at<double>(0, 1), 2));
                             double distance = abs(epipolarLine.dot(point2));
                             // store the distance in corresponding pixel in the disparity map
-                            disparityMap.at<uchar>(k, l) = distance*255;
-                            // if the distance is less than 0.1, then the corresponding points are inliers
-                        //     if (distance < 0.001) {
-                        //         // store the pixels in a vector that is the epipolar line
-                        //         // change the point to a 2d point
-                        //         Point2d point2(l, k);
-                        //         epipolarLine2.push_back(point2);
-                        //         // // calculate the disparity in both the horizontal and vertical directions
-                        //         // int disparityHorizontal = abs(k - i);
-                        //         // int disparityVertical = abs(j - l);
-                        //         // if(disparityHorizontal < minDisparityHorizontal && disparityVertical < minDisparityVertical)
-                        //         // {   minDisparityHorizontal = disparityHorizontal;
-                        //         //     minDisparityVertical = disparityVertical;
-                        //             // matchPoint = (Mat_<double>(3,1) << point2.at<double>(0), point2.at<double>(1), 1);}
-                        //             // print the values in point 1 and match point
-                        //             // cout<<"Point 1: "<<point1<<endl;
-                        //             // cout<<"Match Point: "<<matchPoint<<endl;
-                        //         }
-                        //     // find the pixel correspondence in the second image by considering templates around the epipolar line
-                        //     for (int m = 0; m < epipolarLine2.size(); m++) {
-                        //         double bestDistance = 1000;
-                        //         // extract a 5x5 window around the pixel
-                        //         Mat window2 = img2_padded(Rect(epipolarLine2[m].x, epipolarLine2[m].y, 5, 5));
-                        //         // find the pixel correspondence in the second image by considering templates around the epipolar line
-                        //         cv_factory obj;
-                        //         double distance = obj.NCC(window1, window2);
-                        //         if(distance < bestDistance)
-                        //         {
-                        //             bestDistance = distance;
-                        //             Mat matchPoint = (Mat_<double>(3,1) << epipolarLine2[m].x, epipolarLine2[m].y, 1);
-                        //         }
-                        //     }
-                        // }
+                            // disparityMap.at<uchar>(k, l) = distance*255;
+                            // if the distance is less than 0.001, then the corresponding points are inliers
+                            if (distance < 0.1) {
+                                // store the pixels in a vector that is the epipolar line
+                                // change the point to a 2d point
+                                Point2d point2(l, k);
+                                epipolarLine2.push_back(point2);
+                                }
+                            // find the pixel correspondence in the second image by considering templates around the epipolar line
+                            for (int m = 0; m < epipolarLine2.size(); m++) {
+                                double bestDistance = 1000;
+                                // extract a 5x5 window around the pixel
+                                Mat window2 = img2_padded(Rect(epipolarLine2[m].x, epipolarLine2[m].y, 5, 5));
+                                cv_factory obj;
+                                double distance = obj.NCC(window1, window2);
+                                if(distance < bestDistance)
+                                {
+                                    bestDistance = distance;
+                                    matchPoint = (Mat_<double>(3,1) << epipolarLine2[m].x, epipolarLine2[m].y, 1);
+                                }
+                            }
+                        // print point1 and matchPoint
+                        cout<<"point1: "<<point1<<endl;
+                        cout<<"point2: "<<point2<<endl;
+                        cout<<"matchPoint: "<<matchPoint<<endl;
                         }
                     }
                 }
             }
             // show the disparity map
-            imshow("Disparity Map", disparityMap);
-            waitKey(0);
+            // imshow("Disparity Map", disparityMap);
+            // waitKey(0);
             // return the disparity map
             cout<<"<<< computeDisparityMap() returned"<<endl;
             return disparityMapHorizontal;
