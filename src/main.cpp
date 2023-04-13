@@ -30,7 +30,8 @@ int main(int argc, char** argv) {
     // best fundamental matrix
     Mat bestFundamentalMatrix;
     // estimate the best correspondences
-    vector<pair<Point, Point>> bestCorrespondances = stereoVision.bestCorrespondences(correspondances, bestFundamentalMatrix);
+    // vector<pair<Point, Point>> bestCorrespondances = stereoVision.bestCorrespondences(correspondances, bestFundamentalMatrix);
+    vector<pair<Point, Point>> bestCorrespondances = stereoVision.bestFundamentalMatrix(correspondances, bestFundamentalMatrix);
     // draw the correspondances between the feature points in the left and right images
     Mat correspondancesImage = cvFactory.draw_lines(stereoImages[0], stereoImages[1], bestCorrespondances);
     // draw feature points on the image

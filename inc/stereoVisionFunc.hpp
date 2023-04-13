@@ -53,6 +53,35 @@ class StereoVision {
             return img1_with_points;
         }
 
+        // function to take two images and corresponding feature points as input and return the best fundamental matrix
+        vector<pair<Point, Point>> bestFundamentalMatrix(vector<pair<Point, Point>> correspondingPoints, Mat& BestFundamentalMatrix) {
+            cout<<">>> bestFundamentalMatrix() called"<<endl;
+            // create 2 vectors to store the corresponding points in each image
+            vector<Point> points1, points2;
+            // push the corresponding points into the vectors
+            for (int i = 0; i < correspondingPoints.size(); i++) {
+                points1.push_back(correspondingPoints[i].first);
+                points2.push_back(correspondingPoints[i].second);
+            }
+            // find the best fundamental matrix using cv::findFundamentalMat() function and ransac
+            Mat inliers_mask;
+            BestFundamentalMatrix = findFundamentalMat(points1, points2, FM_RANSAC, 3, 0.99, inliers_mask);
+            // create a vector of pairs of points to store the best inliers correspondences
+            vector<pair<Point, Point>> bestInliersCorrespondences;
+            std::vector<Point2f> inliers1, inliers2;
+            for (int i = 0; i < inliers_mask.rows; ++i) {
+                if (inliers_mask.at<uint8_t>(i)) {
+                    pair<Point, Point> bestInliersCorrespondence;
+                    bestInliersCorrespondence.first = points1[i];
+                    bestInliersCorrespondence.second = points2[i];
+                    bestInliersCorrespondences.push_back(bestInliersCorrespondence);
+                }
+            }
+            // return the best fundamental matrix
+            cout<<"<<< bestFundamentalMatrix() returned"<<endl;
+            return bestInliersCorrespondences;
+        }
+
         // function to take eight corresponding points as input and return the estimated fundamental matrix
         Mat estimateFundamentalMatrix(vector<Point> points1, vector<Point> points2) {
             cout<<">>> estimateFundamentalMatrix() called"<<endl;
@@ -82,7 +111,7 @@ class StereoVision {
                 A.at<double>(i, 8) = 1;
             }
             // find the SVD of A
-            SVD svd(A.t() * A);
+            SVD svd(A);
             // get the last column of V
             Mat V = svd.vt;
             // reshape the last column of V into a 3x3 matrix
@@ -163,7 +192,7 @@ class StereoVision {
         Mat computeDisparityMap(Mat img1, Mat img2, Mat bestFundamentalMatrix) {
             cout<<">>> computeDisparityMap() called"<<endl;
             // create a Mat object to store the disparity map and initialize it to zero with size of img1.cols + img2.cols and img1.rows
-            Mat disparityMap = Mat::zeros(img1.rows, img1.cols + img2.cols, CV_8UC1);
+            Mat disparityMap = Mat::ones(img1.rows, img1.cols + img2.cols, CV_8UC1);
             int epipolarLineWindowSize = 10;
             Mat img1_gray, img2_gray;
             // convert the images to grayscale
@@ -194,11 +223,13 @@ class StereoVision {
                     // store the disparity in the disparity map
                     // debug by printing the disparity
                     cout<<"Disparity: "<<disparity<<endl;
-                    disparityMap.at<uchar>(i, j) = disparity;
-                    // normalize the disparity map to the range 0-255
-                    normalize(disparityMap, disparityMap, 0, 255, NORM_MINMAX);
+                    disparityMap.at<uchar>(i, j) -= abs(disparity);
                 }
             }
+            // normalize the disparity map to the range 0-255
+            normalize(disparityMap, disparityMap, 0, 255, NORM_MINMAX);
+            // debug by printing the disparity map
+            cout<<"Disparity map: "<<disparityMap<<endl;
             // return the disparity map
             cout<<"<<< computeDisparityMap() returned"<<endl;
             return disparityMap;
