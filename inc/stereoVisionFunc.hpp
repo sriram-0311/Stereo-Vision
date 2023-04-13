@@ -65,7 +65,7 @@ class StereoVision {
             }
             // find the best fundamental matrix using cv::findFundamentalMat() function and ransac
             Mat inliers_mask;
-            BestFundamentalMatrix = findFundamentalMat(points1, points2, FM_RANSAC, 3, 0.99, inliers_mask);
+            BestFundamentalMatrix = findFundamentalMat(points1, points2, FM_RANSAC, 0.01, 0.99, inliers_mask);
             // create a vector of pairs of points to store the best inliers correspondences
             vector<pair<Point, Point>> bestInliersCorrespondences;
             std::vector<Point2f> inliers1, inliers2;
@@ -134,7 +134,7 @@ class StereoVision {
             vector<pair<Point, Point>> bestCorrespondences;
             int maxInliers = 0;
             // for 50 iterations
-            for (int i = 0; i < 50; i++) {
+            for (int i = 0; i < 100; i++) {
                 // clear the vectors
                 points1.clear();
                 points2.clear();
@@ -164,7 +164,7 @@ class StereoVision {
                     double distance1 = abs(point2.dot(epipolarLine1)) / sqrt(pow(epipolarLine1.at<double>(0, 0), 2) + pow(epipolarLine1.at<double>(1, 0), 2));
                     double distance2 = abs(point1.dot(epipolarLine2)) / sqrt(pow(epipolarLine2.at<double>(0, 0), 2) + pow(epipolarLine2.at<double>(1, 0), 2));
                     // if the distance is less than 0.1, then the corresponding points are inliers
-                    if (distance1 < 0.75 && distance2 < 0.75) {
+                    if (distance1 < 0.01 && distance2 < 0.01) {
                         inliers++;
                         tempBestCorrespondences.push_back(correspondingPoints[j]);
                     }
@@ -203,20 +203,26 @@ class StereoVision {
                 for (int j = 0; j < img1.cols; j++) {
                     // create a Mat object to store the epipolar line
                     Mat epipolarLine = bestFundamentalMatrix * (Mat_<double>(3, 1) << j, i, 1);
-                    // search along the epipolar line for the corresponding point in image 2 using the epipolar line window size around each pixel in epipolar line in image 2 and find the minimum SSD
-                    int minSSD = INT_MAX;
+                    // search along the epipolar line for the corresponding point in image 2 by performing NCC with a given window size
                     int disparity = 0;
+                    double maxNCC = 0;
                     for (int k = 0; k < img2.cols; k++) {
-                        int SSD = 0;
+                        // calculate the NCC
+                        double ncc = 0;
+                        double sum1 = 0, sum2 = 0, sum3 = 0;
                         for (int l = -epipolarLineWindowSize / 2; l <= epipolarLineWindowSize / 2; l++) {
                             for (int m = -epipolarLineWindowSize / 2; m <= epipolarLineWindowSize / 2; m++) {
-                                if (i + l >= 0 && i + l < img1.rows && k + m >= 0 && k + m < img2.cols) {
-                                    SSD += pow(img1_gray.at<uchar>(i + l, j + m) - img2_gray.at<uchar>(i + l, k + m), 2);
+                                if (i + l >= 0 && i + l < img1.rows && j + m >= 0 && j + m < img1.cols && k + l >= 0 && k + l < img2.rows && k + m >= 0 && k + m < img2.cols) {
+                                    sum1 += img1_gray.at<uchar>(i + l, j + m) * img2_gray.at<uchar>(i + l, k + m);
+                                    sum2 += pow(img1_gray.at<uchar>(i + l, j + m), 2);
+                                    sum3 += pow(img2_gray.at<uchar>(i + l, k + m), 2);
                                 }
                             }
                         }
-                        if (SSD < minSSD) {
-                            minSSD = SSD;
+                        ncc = sum1 / (sqrt(sum2) * sqrt(sum3));
+                        // if the NCC is greater than the maximum NCC, then update the maximum NCC and the disparity
+                        if (ncc > maxNCC) {
+                            maxNCC = ncc;
                             disparity = k - j;
                         }
                     }
