@@ -43,4 +43,6 @@ int main(int argc, char** argv) {
     cvFactory.saveImage("../output/rightImageWithPoints.jpg", rightImageWithPoints);
     cvFactory.saveImage("../output/correspondancesImage.jpg", correspondancesImage);
     cvFactory.saveImage("../output/disparityMap.jpg", disparityMap);
+
+    // stereoVision.sample(stereoImages[0], stereoImages[1] );
 }

@@ -162,70 +162,130 @@ class StereoVision {
 
         Mat computeDisparityMap(Mat img1, Mat img2, Mat bestFundamentalMatrix) {
             cout<<">>> computeDisparityMap() called"<<endl;
-            // create 3 Mat objects to store the disparity map for each component
-            Mat disparityMapVertical = Mat::zeros(img1.rows, img1.cols, CV_8UC1);
-            Mat disparityMapHorizontal = Mat::zeros(img1.rows, img1.cols, CV_8UC1);
-            int minDisparityHorizontal = 5;
-            int minDisparityVertical = 5;
-            int windowSize = 5;
-            // pad the images with zeros
-            Mat img1_padded = Mat::zeros(img1.rows + 2 * windowSize, img1.cols + 2 * windowSize, CV_8UC1);
-            Mat img2_padded = Mat::zeros(img2.rows + 2 * windowSize, img2.cols + 2 * windowSize, CV_8UC1);
-            // create a Mat object to store the epipolar line of the second image
-            Mat epipolarLine;
-            Mat matchPoint;
-            // create a Mat object to store the distances of the difference in pixels between image 1 and 2 in grayscale
-            // Mat disparityMap = Mat::zeros(img1.rows, img1.cols, CV_8UC1);
-            // create a Mat object to store the epipolar line of the second image
-            vector<Point2d> epipolarLine2;
-            // go through all the pixels in the first image
-            for (int i = windowSize/2; i < img1.rows/2; i++) {
-                for (int j = windowSize/2; j < img1.cols/2; j++) {
-                    Mat point1 = (Mat_<double>(3, 1) << i, j, 1);
-                    // extract a 5x5 window around the pixel
-                    Mat window1 = img1_padded(Rect(j, i, windowSize, windowSize));
-                    epipolarLine = point1.t()*bestFundamentalMatrix;
-                    for (int k = windowSize/2; k < img2.rows/2; k++) {
-                        for (int l = windowSize/2; l < img2.cols/2; l++) {
-                            Mat point2 = (Mat_<double>(1, 3) << l, k, 1);
-                            // calculate the distance of the corresponding points from the epipolar lines
-                            // double distance = abs(epipolarLine.dot(point2)) / sqrt(pow(epipolarLine.at<double>(0, 0), 2) + pow(epipolarLine.at<double>(0, 1), 2));
-                            double distance = abs(epipolarLine.dot(point2));
-                            // store the distance in corresponding pixel in the disparity map
-                            // disparityMap.at<uchar>(k, l) = distance*255;
-                            // if the distance is less than 0.001, then the corresponding points are inliers
-                            if (distance < 0.1) {
-                                // store the pixels in a vector that is the epipolar line
-                                // change the point to a 2d point
-                                Point2d point2(l, k);
-                                epipolarLine2.push_back(point2);
-                                }
-                            // find the pixel correspondence in the second image by considering templates around the epipolar line
-                            for (int m = 0; m < epipolarLine2.size(); m++) {
-                                double bestDistance = 1000;
-                                // extract a 5x5 window around the pixel
-                                Mat window2 = img2_padded(Rect(epipolarLine2[m].x, epipolarLine2[m].y, 5, 5));
-                                cv_factory obj;
-                                double distance = obj.NCC(window1, window2);
-                                if(distance < bestDistance)
-                                {
-                                    bestDistance = distance;
-                                    matchPoint = (Mat_<double>(3,1) << epipolarLine2[m].x, epipolarLine2[m].y, 1);
+            // create a Mat object to store the disparity map and initialize it to zero with size of img1.cols + img2.cols and img1.rows
+            Mat disparityMap = Mat::zeros(img1.rows, img1.cols + img2.cols, CV_8UC1);
+            int epipolarLineWindowSize = 10;
+            Mat img1_gray, img2_gray;
+            // convert the images to grayscale
+            cvtColor(img1, img1_gray, COLOR_BGR2GRAY);
+            cvtColor(img2, img2_gray, COLOR_BGR2GRAY);
+            // for each pixel in the image 1
+            for (int i = 0; i < img1.rows; i++) {
+                for (int j = 0; j < img1.cols; j++) {
+                    // create a Mat object to store the epipolar line
+                    Mat epipolarLine = bestFundamentalMatrix * (Mat_<double>(3, 1) << j, i, 1);
+                    // search along the epipolar line for the corresponding point in image 2 using the epipolar line window size around each pixel in epipolar line in image 2 and find the minimum SSD
+                    int minSSD = INT_MAX;
+                    int disparity = 0;
+                    for (int k = 0; k < img2.cols; k++) {
+                        int SSD = 0;
+                        for (int l = -epipolarLineWindowSize / 2; l <= epipolarLineWindowSize / 2; l++) {
+                            for (int m = -epipolarLineWindowSize / 2; m <= epipolarLineWindowSize / 2; m++) {
+                                if (i + l >= 0 && i + l < img1.rows && k + m >= 0 && k + m < img2.cols) {
+                                    SSD += pow(img1_gray.at<uchar>(i + l, j + m) - img2_gray.at<uchar>(i + l, k + m), 2);
                                 }
                             }
-                        // print point1 and matchPoint
-                        cout<<"point1: "<<point1<<endl;
-                        cout<<"point2: "<<point2<<endl;
-                        cout<<"matchPoint: "<<matchPoint<<endl;
+                        }
+                        if (SSD < minSSD) {
+                            minSSD = SSD;
+                            disparity = k - j;
                         }
                     }
+                    // store the disparity in the disparity map
+                    // debug by printing the disparity
+                    cout<<"Disparity: "<<disparity<<endl;
+                    disparityMap.at<uchar>(i, j) = disparity;
+                    // normalize the disparity map to the range 0-255
+                    normalize(disparityMap, disparityMap, 0, 255, NORM_MINMAX);
                 }
             }
-            // show the disparity map
-            // imshow("Disparity Map", disparityMap);
-            // waitKey(0);
             // return the disparity map
             cout<<"<<< computeDisparityMap() returned"<<endl;
-            return disparityMapHorizontal;
+            return disparityMap;
+        }
+
+        // function to test the implementation
+        void sample(Mat img1, Mat img2) {
+
+            Ptr<SIFT> detector = SIFT::create();
+
+            std::vector<KeyPoint> keypoints1, keypoints2;
+            Mat descriptors1, descriptors2;
+
+            detector->detectAndCompute(img1, noArray(), keypoints1, descriptors1);
+            detector->detectAndCompute(img2, noArray(), keypoints2, descriptors2);
+
+            BFMatcher matcher(NORM_L2);
+            std::vector<DMatch> matches;
+            matcher.match(descriptors1, descriptors2, matches);
+
+            Mat img_matches;
+            drawMatches(img1, keypoints1, img2, keypoints2, matches, img_matches);
+
+            imshow("Matches", img_matches);
+
+            // Find the fundamental matrix and eliminate outliers using RANSAC
+            std::vector<Point2f> points1, points2;
+            for (const auto& match : matches) {
+                points1.push_back(keypoints1[match.queryIdx].pt);
+                points2.push_back(keypoints2[match.trainIdx].pt);
+            }
+
+            Mat inliers_mask;
+            Mat F = findFundamentalMat(points1, points2, FM_RANSAC, 3, 0.99, inliers_mask);
+
+            std::vector<Point2f> inliers1, inliers2;
+            for (int i = 0; i < inliers_mask.rows; ++i) {
+                if (inliers_mask.at<uint8_t>(i)) {
+                    inliers1.push_back(points1[i]);
+                    inliers2.push_back(points2[i]);
+                }
+            }
+
+            Mat img_inliers;
+            drawMatches(img1, keypoints1, img2, keypoints2, matches, img_inliers, Scalar::all(-1), Scalar::all(-1), inliers_mask);
+            imshow("Inliers", img_inliers);
+
+            // Compute the dense disparity map
+            Mat gray1, gray2;
+            cvtColor(img1, gray1, COLOR_BGR2GRAY);
+            cvtColor(img2, gray2, COLOR_BGR2GRAY);
+
+            Mat disp;
+            Ptr<StereoBM> bm = StereoBM::create(64, 9);
+            bm->compute(gray1, gray2, disp);
+
+            // Display the disparity map
+            Mat disp_show;
+            normalize(disp, disp_show, 0, 255, NORM_MINMAX, CV_8U);
+            imshow("Disparity", disp_show);
+
+            // Mat disp_x;
+            // disp.convertTo(disp_x, CV_32F, 1.0 / 16.0); // scale factor for 16-bit disparity
+            // disp_x = disp_x.colRange(0, disp_x.cols / 2); // keep only x disparity
+            // imshow("Disparity in X direction", disp_x);
+
+            // Mat disp_y;
+            // disp.convertTo(disp_y, CV_32F, 1.0 / 16.0); // scale factor for 16-bit disparity
+            // disp_y = disp_y.colRange(disp_y.cols / 2, disp_y.cols); // keep only y disparity
+            // imshow("Disparity in Y direction", disp_y);
+
+            // Convert disparity matrix to polar coordinates and create color image
+            Mat magnitude, angle;
+            cartToPolar(disp.colRange(0, disp.cols / 2), Mat::zeros(disp.size(), CV_32F), magnitude, angle);
+            Mat hsv;
+            hsv.create(disp.size(), CV_32FC3);
+            hsv.setTo(Scalar(0, 1, 0));
+            normalize(magnitude, magnitude, 0, 1, NORM_MINMAX);
+            hsv.col(0) = angle * 180 / M_PI / 2;
+            hsv.col(1) = magnitude;
+            Mat color_map;
+            applyColorMap(hsv, color_map, COLORMAP_HSV);
+
+            // Display the disparity vector
+            imshow("Disparity Vector", color_map);
+
+            waitKey();
+
         }
 };
