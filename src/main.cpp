@@ -31,19 +31,19 @@ int main(int argc, char** argv) {
     Mat bestFundamentalMatrix;
     // estimate the best correspondences
     // vector<pair<Point, Point>> bestCorrespondances = stereoVision.bestCorrespondences(correspondances, bestFundamentalMatrix);
-    vector<pair<Point, Point>> bestCorrespondances = stereoVision.bestFundamentalMatrix(correspondances, bestFundamentalMatrix);
+    vector<pair<Point, Point>> bestCorrespondances = stereoVision.bestCorrespondences(correspondances, bestFundamentalMatrix);
     // draw the correspondances between the feature points in the left and right images
     Mat correspondancesImage = cvFactory.draw_lines(stereoImages[0], stereoImages[1], bestCorrespondances);
     // draw feature points on the image
     Mat leftImageWithPoints = stereoVision.drawFeaturePoints(stereoImages[0], leftPoints);
     Mat rightImageWithPoints = stereoVision.drawFeaturePoints(stereoImages[1], rightPoints);
-    // compute the dense disparity map
-    Mat disparityMap = stereoVision.computeDisparityMap(stereoImages[0], stereoImages[1], bestFundamentalMatrix);
+    // // compute the dense disparity map
+    // Mat disparityMap = stereoVision.computeDisparityMap(stereoImages[0], stereoImages[1], bestFundamentalMatrix);
     // save the image with feature points marked on it to the ../output directory
     cvFactory.saveImage("../output/leftImageWithPoints.jpg", leftImageWithPoints);
     cvFactory.saveImage("../output/rightImageWithPoints.jpg", rightImageWithPoints);
     cvFactory.saveImage("../output/correspondancesImage.jpg", correspondancesImage);
-    cvFactory.saveImage("../output/disparityMap.jpg", disparityMap);
+    // cvFactory.saveImage("../output/disparityMap.jpg", disparityMap);
 
     // stereoVision.sample(stereoImages[0], stereoImages[1] );
 }

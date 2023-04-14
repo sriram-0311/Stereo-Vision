@@ -1,0 +1,139 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{courier}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{hyperref}
+\usepackage{adjustbox}
+\usepackage{listings}
+\usepackage[section]{placeins}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{Stereo Vision\\
+}
+
+\makeatletter
+\newcommand{\linebreakand}{%
+  \end{@IEEEauthorhalign}
+  \hfill\mbox{}\par
+  \mbox{}\hfill\begin{@IEEEauthorhalign}
+}
+\makeatother
+
+\author{\IEEEauthorblockN{ Anush Sriram Ramesh}
+\IEEEauthorblockA{\textit{MS Robotics, College of Engineering} \\
+\textit{Northeastern University}\\
+Boston, USA \\
+ramesh.anu@northeastern.edu}
+\and
+\IEEEauthorblockN{\text Anuj Shrivatsav Srikanth}
+\IEEEauthorblockA{\textit{MS Robotics, College of Engineering} \\
+\textit{Northeastern University}\\
+Boston, USA \\
+srikanth.anu@northeastern.edu}
+}
+
+\maketitle
+
+\lstdefinestyle{cpp}{
+  language=C++,
+  basicstyle=\ttfamily,
+  keywordstyle=\color{blue},
+  commentstyle=\color{gray},
+  stringstyle=\color{red},
+  showstringspaces=false,
+  breaklines=true,
+  tabsize=4
+}
+
+\begin{abstract}
+%Write an abstract for stereo vision project where we find fundamental matrix of an uncalibrated stereo system images and then use that to find the disparity map of the images.
+The advent of stereo vision introduced the concept of robust depth estimation in computer vision, which enabled many applications from great depth images on mobile phones to feasible vision solutions for autonomous robotics systems. In this educational project, we aim to estimate the fundamental matrix of a stereo system using 8-point algorithm where the correspondences come from the implementation done in project 2. We then use the fundamental matrix to find the disparity map of the images. We also implement a dense disparity mapping algorithm to find the disparity map of the images. We use the disparity map to find the depth map of the images. The disparity map is displayed as the horizontal, vertical and polar components for better visualization.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Stereo Vision, Fundamental Matrix, Disparity Map
+\end{IEEEkeywords}
+
+\section{Description of Algorithms}
+
+\subsection{Fundamental Matrix Estimation}\label{AA}
+
+
+\subsection{Dense Disparity Mapping}\label{AA}
+
+\section{Experiments}
+With the provided images of \textit{Cones} and \textit{Castle} we tested our code and found the following results. The output of the code is shown below :
+
+\subsection{Cones}\label{AA}
+\begin{figure}[H]
+\centering
+\subfigure{
+\includegraphics[width=.21\textwidth]{left.jpg}
+}
+\subfigure{
+\includegraphics[width=.21\textwidth]{right.jpg}
+}
+\vspace{-0.3cm}
+\caption{input images}
+\label{fig}
+\end{figure}
+
+\subsection{Castle}\label{AA}
+\begin{figure}[H]
+\centering
+\subfigure{
+\includegraphics[width=.21\textwidth]{left.jpeg}
+}
+\subfigure{
+\includegraphics[width=.21\textwidth]{right.jpeg}
+}
+\vspace{-0.3cm}
+\caption{input images}
+\label{fig}
+\end{figure}
+
+\section{Values of Parameters}[h]
+The values of the parameters used in the experiments for each section of the processing are as follows.
+\subsection{Disparity Estimation}\label{AA}
+\begin{table}[H]
+\centering
+\begin{tabular}{|c|c|}
+\hline
+Parameter & Value \\
+\hline
+\hline
+Window size around epipolar line & 10 \\
+\hline
+\end{tabular}
+\vspace{0.1cm}
+\caption{Values of Parameters}
+\label{tab:parameters}
+\end{table}
+
+\section{Observation and Conclusion}
+The observation from the experiments is that even with an uncalibrated stereo system the dense disparity map can be robustly estimated using the fundamental matrix. The fundamental matrix encodes the intrinsic and extrinsic parameters of the stereo system.
+
+It can be observed from the experimental results that it is much more efficient to search along the epipolar line than the entire image. It reduces the complexity of the algorithm from $O(n^2)$ to $O(n)$ where $n$ is the number of pixels in the image. The bigger the size of the window around the epipolar line the better the results for the corresponding pixel estimation and hence the disparity map, but it also increases the complexity of the algorithm.
+
+The dense disparity map can be used to map the 2D points in the image to 3D points in the Camera coordinate system which can be tranformed to the world coordinate system to derive a dense point cloud without a need for expensive Lidar sensors.
+
+\section{Appendix}
+A detailed overview of the project's file structure, along with the code is available in the \href{https://github.com/sriram-0311/ImageMosaicing}{GitHub Repository}.
+
+Below are snippets from the code for easy evaluation. We kindly request you browse through the GitHub repo before a complete evaluation of the code.
+
+\subsection{\textbf{Normalized Cross Correlation}}\label{AA}
+
+
+\end{document}

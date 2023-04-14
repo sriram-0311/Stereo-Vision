@@ -17,6 +17,8 @@ using namespace cv;
 
 class StereoVision {
     public:
+        // create cv_factory object
+        cv_factory cvFactory;
         // function to find feature points in the image using SIFT algorithm and return pair of points
         vector<Point> findFeaturePoints(Mat img1) {
             cout<<">>> findFeaturePoints() called"<<endl;
@@ -78,6 +80,7 @@ class StereoVision {
                 }
             }
             // return the best fundamental matrix
+            cout<<"Best fundamental matrix is : "<<BestFundamentalMatrix<<endl;
             cout<<"<<< bestFundamentalMatrix() returned"<<endl;
             return bestInliersCorrespondences;
         }
@@ -87,42 +90,51 @@ class StereoVision {
             cout<<">>> estimateFundamentalMatrix() called"<<endl;
             // create a Mat object to store the fundamental matrix
             Mat fundamentalMatrix;
-            // create a vector of points to store the corresponding points
-            vector<Point2f> points1_2f, points2_2f;
-            // push the corresponding points into the vector
-            for (int i = 0; i < points1.size(); i++) {
-                points1_2f.push_back(Point2f(points1[i].x, points1[i].y));
-                points2_2f.push_back(Point2f(points2[i].x, points2[i].y));
-            }
             // construct the fundamental matrix empty
-            fundamentalMatrix = Mat::zeros(3, 3, CV_64F);
+            fundamentalMatrix = Mat::zeros(3, 3, CV_32F);
+            // number of points
+            int num_points = points1.size();
             // create the A matrix to multiply with vectorized fundamental matrix
-            Mat A = Mat::zeros(8, 9, CV_64F);
-            // fill the A matrix
-            for (int i = 0; i < 8; i++) {
-                A.at<double>(i, 0) = points1_2f[i].x * points2_2f[i].x;
-                A.at<double>(i, 1) = points1_2f[i].x * points2_2f[i].y;
-                A.at<double>(i, 2) = points1_2f[i].x;
-                A.at<double>(i, 3) = points1_2f[i].y * points2_2f[i].x;
-                A.at<double>(i, 4) = points1_2f[i].y * points2_2f[i].y;
-                A.at<double>(i, 5) = points1_2f[i].y;
-                A.at<double>(i, 6) = points2_2f[i].x;
-                A.at<double>(i, 7) = points2_2f[i].y;
+            Mat A(num_points, 9, CV_64FC1);
+            for (int i = 0; i < num_points; i++) {
+                double x1 = points1[i].x;
+                double y1 = points1[i].y;
+                double x2 = points2[i].x;
+                double y2 = points2[i].y;
+                A.at<double>(i, 0) = x2 * x1;
+                A.at<double>(i, 1) = x2 * y1;
+                A.at<double>(i, 2) = x2;
+                A.at<double>(i, 3) = y2 * x1;
+                A.at<double>(i, 4) = y2 * y1;
+                A.at<double>(i, 5) = y2;
+                A.at<double>(i, 6) = x1;
+                A.at<double>(i, 7) = y1;
                 A.at<double>(i, 8) = 1;
-            }
-            // find the SVD of A
-            SVD svd(A);
-            // get the last column of V
-            Mat V = svd.vt;
-            // reshape the last column of V into a 3x3 matrix
-            Mat fundamentalMatrix_reshaped = V.row(8).reshape(0, 3);
-            // normalize the fundamental matrix
-            fundamentalMatrix = fundamentalMatrix_reshaped / fundamentalMatrix_reshaped.at<double>(2, 2);
-            // print the fundamental matrix
-            cout<<"Fundamental Matrix:"<<endl;
-            // return the fundamental matrix
-            cout<<"<<< estimateFundamentalMatrix() returned"<<endl;
-            return fundamentalMatrix;
+        }
+        // Find SVD
+        Mat U, S, Vt;
+        SVD svd(A);
+        Vt = svd.vt;
+        Mat lastCol = Mat::zeros(1, 9, CV_64FC1);
+        // convert the last column of Vt to a 3x3 matrix
+        for (int i = 0; i < 9; i++)
+            lastCol.at<double>(i) = Vt.at<double>(8, i);
+        cout<<"Vt :"<<lastCol.size()<<endl;
+        // reshape the last column of Vt to get the fundamental matrix
+        cout<<"Vt :"<<lastCol<<endl;
+        Mat F = lastCol.reshape(0, 3);
+
+        // Force F to be singular by setting smallest singular value to zero
+        cv::SVDecomp(F, S, U, Vt);
+        S.at<double>(2) = 0;
+        F = U * Mat::diag(S) * Vt;
+
+        // Unnormalize F
+        // double norm_factor = 1.0 / F.at<double>(2, 2);
+        // F *= norm_factor;
+        // F.at<double>(2, 2) = 0.0;
+
+        return F;
         }
 
         // function to take corresponding points as input and return the best inliers correspondences using RANSAC algorithm by estimating the fundamental matrix for 50 iterations
@@ -152,19 +164,15 @@ class StereoVision {
                 tempBestCorrespondences.clear();
                 // transform all the corresponding points using the fundamental matrix
                 for (int j = 0; j < correspondingPoints.size(); j++) {
-                    Mat point1 = (Mat_<double>(3, 1) << correspondingPoints[j].first.x, correspondingPoints[j].first.y, 1);
-                    Mat point2 = (Mat_<double>(3, 1) << correspondingPoints[j].second.x, correspondingPoints[j].second.y, 1);
-                    // Mat point1_transpose = point1.t();
-                    // // print the shape of the point
-                    // cout<<"Shape of point: "<<point1.size()<<endl;
-                    // Mat point2_transpose = point2.t();
-                    Mat epipolarLine1 = fundamentalMatrix * point2;
-                    Mat epipolarLine2 = fundamentalMatrix.t() * point1;
-                    // calculate the distance of the corresponding points from the epipolar lines
-                    double distance1 = abs(point2.dot(epipolarLine1)) / sqrt(pow(epipolarLine1.at<double>(0, 0), 2) + pow(epipolarLine1.at<double>(1, 0), 2));
-                    double distance2 = abs(point1.dot(epipolarLine2)) / sqrt(pow(epipolarLine2.at<double>(0, 0), 2) + pow(epipolarLine2.at<double>(1, 0), 2));
-                    // if the distance is less than 0.1, then the corresponding points are inliers
-                    if (distance1 < 0.01 && distance2 < 0.01) {
+                    Mat point1 = (Mat_<double>(1, 3) << correspondingPoints[j].first.x, correspondingPoints[j].first.y, 1);
+                    Mat point2 = (Mat_<double>(1, 3) << correspondingPoints[j].second.x, correspondingPoints[j].second.y, 1);
+                    // find the distance
+                    Mat d = point1 * fundamentalMatrix * point2.t();
+                    // convert the distance to double
+                    double distance = d.at<double>(0, 0);
+                    // // cout<<"d: "<<d<<endl;
+                    // // if the distance is less than 0.01, then it is an inlier
+                    if (abs(distance) < 0.001) {
                         inliers++;
                         tempBestCorrespondences.push_back(correspondingPoints[j]);
                     }
@@ -177,6 +185,8 @@ class StereoVision {
                 }
             }
             // return the best correspondences
+            cout<<"Best Fundamental Matrix: "<<endl<<bestFundamentalMatrix<<endl;
+            cout<<"Number of inliers: "<<maxInliers<<endl;
             cout<<"<<< bestCorrespondences() returned"<<endl;
             return bestCorrespondences;
         }
@@ -228,7 +238,7 @@ class StereoVision {
                     }
                     // store the disparity in the disparity map
                     // debug by printing the disparity
-                    cout<<"Disparity: "<<disparity<<endl;
+                    // cout<<"Disparity: "<<disparity<<endl;
                     disparityMap.at<uchar>(i, j) -= abs(disparity);
                 }
             }
@@ -260,6 +270,7 @@ class StereoVision {
             drawMatches(img1, keypoints1, img2, keypoints2, matches, img_matches);
 
             imshow("Matches", img_matches);
+            cvFactory.saveImage("../output/CastleMatchesFromCV.jpg", img_matches);
 
             // Find the fundamental matrix and eliminate outliers using RANSAC
             std::vector<Point2f> points1, points2;
@@ -282,6 +293,7 @@ class StereoVision {
             Mat img_inliers;
             drawMatches(img1, keypoints1, img2, keypoints2, matches, img_inliers, Scalar::all(-1), Scalar::all(-1), inliers_mask);
             imshow("Inliers", img_inliers);
+            cvFactory.saveImage("../output/CastleInliersFromCV.jpg", img_inliers);
 
             // Compute the dense disparity map
             Mat gray1, gray2;
@@ -296,31 +308,34 @@ class StereoVision {
             Mat disp_show;
             normalize(disp, disp_show, 0, 255, NORM_MINMAX, CV_8U);
             imshow("Disparity", disp_show);
+            cvFactory.saveImage("../output/CastleDisparityFromCV.jpg", disp_show);
 
-            // Mat disp_x;
-            // disp.convertTo(disp_x, CV_32F, 1.0 / 16.0); // scale factor for 16-bit disparity
-            // disp_x = disp_x.colRange(0, disp_x.cols / 2); // keep only x disparity
-            // imshow("Disparity in X direction", disp_x);
+            Mat disp_x;
+            disp.convertTo(disp_x, CV_32F, 1.0 / 16.0); // scale factor for 16-bit disparity
+            disp_x = disp_x.colRange(0, disp_x.cols / 2); // keep only x disparity
+            imshow("Disparity in X direction", disp_x);
+            cvFactory.saveImage("../output/CastleDisparityXFromCV.jpg", disp_x);
 
-            // Mat disp_y;
-            // disp.convertTo(disp_y, CV_32F, 1.0 / 16.0); // scale factor for 16-bit disparity
-            // disp_y = disp_y.colRange(disp_y.cols / 2, disp_y.cols); // keep only y disparity
-            // imshow("Disparity in Y direction", disp_y);
+            Mat disp_y;
+            disp.convertTo(disp_y, CV_32F, 1.0 / 16.0); // scale factor for 16-bit disparity
+            disp_y = disp_y.colRange(disp_y.cols / 2, disp_y.cols); // keep only y disparity
+            imshow("Disparity in Y direction", disp_y);
+            cvFactory.saveImage("../output/CastleDisparityYFromCV.jpg", disp_y);
 
             // Convert disparity matrix to polar coordinates and create color image
-            Mat magnitude, angle;
-            cartToPolar(disp.colRange(0, disp.cols / 2), Mat::zeros(disp.size(), CV_32F), magnitude, angle);
-            Mat hsv;
-            hsv.create(disp.size(), CV_32FC3);
-            hsv.setTo(Scalar(0, 1, 0));
-            normalize(magnitude, magnitude, 0, 1, NORM_MINMAX);
-            hsv.col(0) = angle * 180 / M_PI / 2;
-            hsv.col(1) = magnitude;
-            Mat color_map;
-            applyColorMap(hsv, color_map, COLORMAP_HSV);
+            // Mat magnitude, angle;
+            // cartToPolar(disp.colRange(0, disp.cols / 2), Mat::zeros(disp.size(), CV_32F), magnitude, angle);
+            // Mat hsv;
+            // hsv.create(disp.size(), CV_32FC3);
+            // hsv.setTo(Scalar(0, 1, 0));
+            // normalize(magnitude, magnitude, 0, 1, NORM_MINMAX);
+            // hsv.col(0) = angle * 180 / M_PI / 2;
+            // hsv.col(1) = magnitude;
+            // Mat color_map;
+            // applyColorMap(hsv, color_map, COLORMAP_HSV);
 
             // Display the disparity vector
-            imshow("Disparity Vector", color_map);
+            // imshow("Disparity Vector", color_map);
 
             waitKey();
 
