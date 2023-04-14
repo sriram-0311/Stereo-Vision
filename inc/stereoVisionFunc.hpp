@@ -118,7 +118,7 @@ class StereoVision {
         Mat lastCol = Mat::zeros(1, 9, CV_64FC1);
         // convert the last column of Vt to a 3x3 matrix
         for (int i = 0; i < 9; i++)
-            lastCol.at<double>(i) = Vt.at<double>(8, i);
+            lastCol.at<double>(i) = Vt.at<double>(i, 8);
         cout<<"Vt :"<<lastCol.size()<<endl;
         // reshape the last column of Vt to get the fundamental matrix
         cout<<"Vt :"<<lastCol<<endl;
