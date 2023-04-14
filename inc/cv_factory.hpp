@@ -138,7 +138,7 @@ class cv_factory {
             normalize(R, dst_norm, 0, 255, NORM_MINMAX, CV_32FC1, Mat());
             //convertScaleAbs(dst_norm, dst_norm_scaled);
             // apply non-maxima suppression to get the best corners
-            Mat SuppressedR = non_maxima_suppression(dst_norm, 3);
+            Mat SuppressedR = non_maxima_suppression(dst_norm, 5);
             vector<Point> corners;
             for(int i = 0; i < dst_norm.rows; i++) {
                 for(int j = 0; j < dst_norm.cols; j++) {
@@ -164,7 +164,7 @@ class cv_factory {
             Mat gray;
             cvtColor(img, gray, COLOR_BGR2GRAY);
             // apply the harris corner detector
-            tuple<vector<Point>, Mat> dst_norm_scaled = CornerHarris(img, 5, 0.04, 120);
+            tuple<vector<Point>, Mat> dst_norm_scaled = CornerHarris(img, 7, 0.04, 100);
             return dst_norm_scaled;
         }
 
@@ -239,7 +239,7 @@ class cv_factory {
             {
                 // check if the template is within the image
                 //cout<<"Creating templates"<<endl;
-                int WindowSize = 5;
+                int WindowSize = 15;
                 if(corners1[i].x - WindowSize/2 <= 0 || corners1[i].x + WindowSize/2 >= img1.cols || corners1[i].y - WindowSize/2 <= 0 || corners1[i].y + WindowSize/2 >= img1.rows)
                     continue;
                 // create a roi around the corner point

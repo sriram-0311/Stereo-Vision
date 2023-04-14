@@ -111,24 +111,31 @@ class StereoVision {
                 A.at<double>(i, 7) = y1;
                 A.at<double>(i, 8) = 1;
         }
+        // print the matrix A
+        // cout<<"A :"<<A<<endl;
         // Find SVD
-        Mat U, S, Vt;
         SVD svd(A);
-        Vt = svd.vt;
+        Mat Vt = svd.vt;
+        // print the matrix Vt
+        // cout<<"Vt :"<<Vt<<endl;
         Mat lastCol = Mat::zeros(1, 9, CV_64FC1);
         // convert the last column of Vt to a 3x3 matrix
         for (int i = 0; i < 9; i++)
-            lastCol.at<double>(i) = Vt.at<double>(i, 8);
-        cout<<"Vt :"<<lastCol.size()<<endl;
+            lastCol.at<double>(i) = Vt.at<double>(7, i);
+        // print the last column of Vt
+        // cout<<"lastCol :"<<lastCol<<endl;
         // reshape the last column of Vt to get the fundamental matrix
-        cout<<"Vt :"<<lastCol<<endl;
         Mat F = lastCol.reshape(0, 3);
 
         // Force F to be singular by setting smallest singular value to zero
-        cv::SVDecomp(F, S, U, Vt);
-        S.at<double>(2) = 0;
-        F = U * Mat::diag(S) * Vt;
-
+        SVD svd2(F);
+        // set the last singular value of the matrix F to zero
+        Mat w = svd2.w;
+        w.at<double>(2) = 0;
+        // reconstruct F
+        Mat u = svd2.u;
+        Mat vt = svd2.vt;
+        F = u * Mat::diag(w) * vt;
         // Unnormalize F
         // double norm_factor = 1.0 / F.at<double>(2, 2);
         // F *= norm_factor;
@@ -172,7 +179,7 @@ class StereoVision {
                     double distance = d.at<double>(0, 0);
                     // // cout<<"d: "<<d<<endl;
                     // // if the distance is less than 0.01, then it is an inlier
-                    if (abs(distance) < 0.001) {
+                    if (abs(distance) < 0.1) {
                         inliers++;
                         tempBestCorrespondences.push_back(correspondingPoints[j]);
                     }
