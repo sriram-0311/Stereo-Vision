@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <opencv2/opencv.hpp>
+#include <opencv2/optflow.hpp>
 #include <string>
 #include <numeric>
 #include <filesystem>
@@ -140,7 +141,6 @@ class StereoVision {
         // double norm_factor = 1.0 / F.at<double>(2, 2);
         // F *= norm_factor;
         // F.at<double>(2, 2) = 0.0;
-
         return F;
         }
 
@@ -150,7 +150,7 @@ class StereoVision {
             // create a vector of points to store the corresponding points
             vector<Point> points1, points2;
             vector<pair<Point, Point>> tempBestCorrespondences;
-            vector<pair<Point, Point>> bestCorrespondences;
+            vector<pair<Point, Point>> bestCorrespondences = correspondingPoints;
             int maxInliers = 0;
             // for 50 iterations
             for (int i = 0; i < 100; i++) {
@@ -171,15 +171,23 @@ class StereoVision {
                 tempBestCorrespondences.clear();
                 // transform all the corresponding points using the fundamental matrix
                 for (int j = 0; j < correspondingPoints.size(); j++) {
-                    Mat point1 = (Mat_<double>(1, 3) << correspondingPoints[j].first.x, correspondingPoints[j].first.y, 1);
-                    Mat point2 = (Mat_<double>(1, 3) << correspondingPoints[j].second.x, correspondingPoints[j].second.y, 1);
-                    // find the distance
-                    Mat d = point1 * fundamentalMatrix * point2.t();
+                    float point1Homo[3] = {static_cast<float>(correspondingPoints[j].first.x), static_cast<float>(correspondingPoints[j].first.y), 1};
+                    float point2Homo[3] = {static_cast<float>(correspondingPoints[j].second.x), static_cast<float>(correspondingPoints[j].second.y), 1};
+                    Mat point1(3, 1, CV_32F, point1Homo);
+                    Mat point2(3, 1, CV_32F, point2Homo);
+                    // find the distance using the formula d = x1 * F * x2' where shape of x2 is (1,3), F is (3,3) and x1 is (1,3)
+                    fundamentalMatrix.convertTo(fundamentalMatrix, point2.type());
+                    cout<<"point1: "<<point1.size()<<endl;
+                    cout<<"point2: "<<point2.size()<<endl;
+                    cout<<"fundamentalMatrix: "<<fundamentalMatrix.size()<<endl;
+                    Mat temp = fundamentalMatrix * point2;
+                    cout<<"temp: "<<temp.size()<<endl;
+                    double d = point1.dot(temp);
                     // convert the distance to double
-                    double distance = d.at<double>(0, 0);
+                    // double distance = d.at<double>(0, 0);
                     // // cout<<"d: "<<d<<endl;
                     // // if the distance is less than 0.01, then it is an inlier
-                    if (abs(distance) < 0.1) {
+                    if (abs(d) < 0.01) {
                         inliers++;
                         tempBestCorrespondences.push_back(correspondingPoints[j]);
                     }
@@ -190,6 +198,9 @@ class StereoVision {
                     bestCorrespondences = tempBestCorrespondences;
                     bestFundamentalMatrix = fundamentalMatrix;
                 }
+                // return the fundamental matrix with the smallest last singular value
+                // if (abs(fundamentalMatrix.at<double>(2, 2)) < abs(bestFundamentalMatrix.at<double>(2, 2)))
+                //     bestFundamentalMatrix = fundamentalMatrix;
             }
             // return the best correspondences
             cout<<"Best Fundamental Matrix: "<<endl<<bestFundamentalMatrix<<endl;
@@ -308,8 +319,21 @@ class StereoVision {
             cvtColor(img2, gray2, COLOR_BGR2GRAY);
 
             Mat disp;
-            Ptr<StereoBM> bm = StereoBM::create(64, 9);
-            bm->compute(gray1, gray2, disp);
+            Ptr<StereoSGBM> sgbm = StereoSGBM::create(0, 64, 7);
+            sgbm->setBlockSize(15);
+            sgbm->setP1(8 * img1.channels() * sgbm->getBlockSize() * sgbm->getBlockSize());
+            sgbm->setP2(32 * img2.channels() * sgbm->getBlockSize() * sgbm->getBlockSize());
+            sgbm->setMinDisparity(0);
+            sgbm->setUniquenessRatio(10);
+            sgbm->setSpeckleWindowSize(100);
+            sgbm->setSpeckleRange(32);
+            // sgbm->setMode(StereoSGBM::MODE_SGBM_VERT);
+            // compute the horizontal disparity map using the stereoBM::compute() function
+            Mat rotatedgray1, rotatedgray2;
+            rotate(gray1, rotatedgray1, ROTATE_90_CLOCKWISE);
+            rotate(gray2, rotatedgray2, ROTATE_90_CLOCKWISE);
+            sgbm->compute(gray1, gray2, disp);
+            cout<<"<<< compute() returned"<<disp<<endl;
 
             // Display the disparity map
             Mat disp_show;
@@ -317,34 +341,38 @@ class StereoVision {
             imshow("Disparity", disp_show);
             cvFactory.saveImage("../output/CastleDisparityFromCV.jpg", disp_show);
 
-            Mat disp_x;
-            disp.convertTo(disp_x, CV_32F, 1.0 / 16.0); // scale factor for 16-bit disparity
-            disp_x = disp_x.colRange(0, disp_x.cols / 2); // keep only x disparity
-            imshow("Disparity in X direction", disp_x);
-            cvFactory.saveImage("../output/CastleDisparityXFromCV.jpg", disp_x);
+            // Convert the disparity map to a 3-channel image and normalize for display
+            Mat disparity_norm;
+            normalize(disp, disparity_norm, 0, 255, NORM_MINMAX, CV_8U);
+            Mat disparity_color;
+            cvtColor(disparity_norm, disparity_color, COLOR_GRAY2BGR);
 
-            Mat disp_y;
-            disp.convertTo(disp_y, CV_32F, 1.0 / 16.0); // scale factor for 16-bit disparity
-            disp_y = disp_y.colRange(disp_y.cols / 2, disp_y.cols); // keep only y disparity
-            imshow("Disparity in Y direction", disp_y);
-            cvFactory.saveImage("../output/CastleDisparityYFromCV.jpg", disp_y);
+            // Convert the disparity map to a 3-channel image and normalize for display
+            Mat disparity_norm;
+            normalize(disp, disparity_norm, 0, 255, NORM_MINMAX, CV_8U);
+            Mat disparity_color;
+            cvtColor(disparity_norm, disparity_color, COLOR_GRAY2BGR);
 
-            // Convert disparity matrix to polar coordinates and create color image
-            // Mat magnitude, angle;
-            // cartToPolar(disp.colRange(0, disp.cols / 2), Mat::zeros(disp.size(), CV_32F), magnitude, angle);
-            // Mat hsv;
-            // hsv.create(disp.size(), CV_32FC3);
-            // hsv.setTo(Scalar(0, 1, 0));
-            // normalize(magnitude, magnitude, 0, 1, NORM_MINMAX);
-            // hsv.col(0) = angle * 180 / M_PI / 2;
-            // hsv.col(1) = magnitude;
-            // Mat color_map;
-            // applyColorMap(hsv, color_map, COLORMAP_HSV);
+            Mat flow;
+            calcOpticalFlowSparseToDense(img1, img2, flow, 0.1, 100, 0.1, false, false);
 
-            // Display the disparity vector
-            // imshow("Disparity Vector", color_map);
+            // Convert the flow field to HSV color space
+            Mat hsv;
+            Mat flow_cart;
+            Mat magnitude = Mat::zeros(flow.size(), CV_32FC1);
+            Mat angle = Mat::zeros(flow.size(), CV_32FC1);
+            cv::cartToPolar(flow.reshape(2), magnitude, cv::Mat(angle), true);
+            cv::normalize(magnitude, magnitude, 0, 1, NORM_MINMAX);
+            hsv.create(img1.size(), CV_32FC3);
+            hsv.setTo(Scalar(0, 1, 0));
+            hsv.at<Vec3f>(0, 0) = Vec3f(0, 0, 0);
+            angle *= ((1.f / 360.f) * (180.f / 255.f));
+            hsv.at<Vec3f>(0, 0)[0] = angle.at<float>(0, 0);
+            hsv.at<Vec3f>(0, 0)[1] = magnitude.at<float>(0, 0);
+            cvtColor(hsv, hsv, COLOR_HSV2BGR);
 
-            waitKey();
-
+            // Display the color image
+            imshow("Optical Flow", hsv);
+            waitKey(0);
         }
 };

@@ -27,7 +27,7 @@ class cv_factory {
             // read the images from the directory
             for(int i = 0; i < directory.size(); i++) {
                 Mat img = imread(directory[i]);
-                resize(img, img, Size(), 0.75, 0.75);
+                resize(img, img, Size(), 1, 1);
                 imgs.push_back(img);
             }
             // print the size of imput images
@@ -58,7 +58,7 @@ class cv_factory {
                     if (j == 0)
                         {j++;
                         continue;}
-                    if(R.at<float>(i, j) < 100)
+                    if(R.at<float>(i, j) < 35)
                         {R_copy.at<float>(i, j) = min;
                         j++;
                         continue;}
@@ -138,18 +138,18 @@ class cv_factory {
             normalize(R, dst_norm, 0, 255, NORM_MINMAX, CV_32FC1, Mat());
             //convertScaleAbs(dst_norm, dst_norm_scaled);
             // apply non-maxima suppression to get the best corners
-            Mat SuppressedR = non_maxima_suppression(dst_norm, 5);
+            Mat SuppressedR = non_maxima_suppression(dst_norm, 3);
             vector<Point> corners;
             for(int i = 0; i < dst_norm.rows; i++) {
                 for(int j = 0; j < dst_norm.cols; j++) {
-                    if((int)SuppressedR.at<float>(i,j) > 100) {
+                    if((int)SuppressedR.at<float>(i,j) > 80) {
                         circle(gray, Point(j,i), 5, Scalar(0), 2, 8, 0);
                         corners.push_back(Point(j,i));
                     }
                 }
             }
             tuple<vector<Point>, Mat> corners_img;
-            corners_img = make_tuple(corners, img);
+            corners_img = make_tuple(corners, gray);
             // return the R matrix
             // print the mean and standard deviation of the dst_norm_scaled
             // cout<<"mean: "<<mean(dst_norm_scaled)<<endl;
@@ -164,7 +164,7 @@ class cv_factory {
             Mat gray;
             cvtColor(img, gray, COLOR_BGR2GRAY);
             // apply the harris corner detector
-            tuple<vector<Point>, Mat> dst_norm_scaled = CornerHarris(img, 7, 0.04, 100);
+            tuple<vector<Point>, Mat> dst_norm_scaled = CornerHarris(img, 3, 0.06, 100);
             return dst_norm_scaled;
         }
 
